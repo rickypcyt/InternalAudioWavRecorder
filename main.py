@@ -131,12 +131,16 @@ def actualizar_etiqueta_cancion():
 # Llamar a la función para actualizar la etiqueta inicialmente
 actualizar_etiqueta_cancion()
 
+# Frame para los botones de grabación
+frame_botones = tk.Frame(ventana)
+frame_botones.pack(pady=10)
+
 # Botones para iniciar y detener la grabación
-boton_grabar = tk.Button(ventana, text="Iniciar Grabación", command=iniciar_grabacion)
+boton_grabar = tk.Button(frame_botones, text="Iniciar Grabación", command=iniciar_grabacion)
 boton_grabar.pack(side=tk.LEFT, padx=10)
 
-boton_detener = tk.Button(ventana, text="Detener Grabación", command=detener_grabacion)
-boton_detener.pack(side=tk.LEFT, padx=10)
+boton_detener = tk.Button(frame_botones, text="Detener Grabación", command=detener_grabacion)
+boton_detener.pack(side=tk.RIGHT, padx=10)
 
 # Ejecutar el bucle principal de la interfaz gráfica
 ventana.mainloop()
