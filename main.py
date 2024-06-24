@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, Canvas
 import sounddevice as sd
 import numpy as np
 import wave
@@ -15,6 +15,7 @@ buffer_size = fs  # 1-second buffer
 elapsed_time = 0
 current_title = ""
 current_artists = ""
+current_filename = ""
 
 # Function to get song title and artist information
 def get_song_info():
@@ -54,7 +55,7 @@ def update_song_title():
     current_artists = artists
     window.after(1000, update_song_title)
 
-def record_audio():
+def record_audio(filename):
     global recording, audio_buffer, elapsed_time
     elapsed_time = 0
 
@@ -80,8 +81,7 @@ def record_audio():
         messagebox.showerror("Error", "Desired input device not found")
         return
 
-    title, artists = get_song_info()
-    output_filename = clean_filename(f"{artists} - {title}.wav")
+    output_filename = filename
 
     with sd.InputStream(samplerate=fs, device=device_index, channels=2, callback=callback, dtype='int16'):
         while recording:
@@ -96,7 +96,6 @@ def save_audio(audio, filename):
         wav_file.setsampwidth(2)
         wav_file.setframerate(fs)
         wav_file.writeframes(audio.tobytes())
-    messagebox.showinfo("Information", f"Recording complete and saved as '{filename}'")
 
 def clean_filename(name):
     # Invalid characters in filenames
@@ -106,17 +105,21 @@ def clean_filename(name):
     return name
 
 def start_recording():
-    global recording
+    global recording, current_filename
     if not recording:
-        recording = True
-        threading.Thread(target=record_audio).start()
+        title, artists = get_song_info()
+        current_filename = clean_filename(f"{artists} - {title}.wav")
+        threading.Thread(target=record_audio, args=(current_filename,)).start()
         update_elapsed_time()
+        recording = True
+        update_record_indicator()  # Update recording indicator
         print("Recording started...")
 
 def stop_recording():
     global recording
     if recording:
         recording = False
+        update_record_indicator()  # Update recording indicator
         print("Recording stopped")
 
 def update_elapsed_time():
@@ -125,6 +128,12 @@ def update_elapsed_time():
         elapsed_time += 1
         time_label.config(text=f"Recording time: {elapsed_time} s")
         window.after(1000, update_elapsed_time)
+
+def update_record_indicator():
+    if recording:
+        canvas.itemconfig(recording_indicator, fill='green')
+    else:
+        canvas.itemconfig(recording_indicator, fill='red')
 
 # Create the main window
 window = tk.Tk()
@@ -138,6 +147,11 @@ song_label.pack(pady=10)
 # Label to display elapsed recording time
 time_label = tk.Label(window, text="Recording time: 0 s")
 time_label.pack(pady=10)
+
+# Canvas to draw recording indicator
+canvas = Canvas(window, width=20, height=20)
+canvas.pack(pady=10)
+recording_indicator = canvas.create_oval(5, 5, 20, 20, fill='red')  # Red circle initially
 
 # Function to update song label with current song information
 def update_song_label():
