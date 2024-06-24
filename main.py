@@ -4,46 +4,55 @@ import sounddevice as sd
 import numpy as np
 import wave
 import threading
+import os
 from pydbus import SessionBus
 
 # Variables globales
 grabando = False
 fs = 48000  # Frecuencia de muestreo, compatible con AirPods Pro
 nombre_archivo = 'output.wav'
-segundos_transcurridos = 0
+audio_buffer = []
+buffer_size = fs  # Buffer de 1 segundo
+tiempo_transcurrido = 0
 
-# Función para obtener el título de la canción
-def obtener_titulo_cancion():
+# Función para obtener el título y artista de la canción
+def obtener_info_cancion():
     bus = SessionBus()
     try:
-        player = bus.get('org.mpris.MediaPlayer2.firefox.instance_1_97', '/org/mpris/MediaPlayer2')
+        player = bus.get('org.mpris.MediaPlayer2.firefox.instance_1_83', '/org/mpris/MediaPlayer2')
         metadata = player.Metadata
         if metadata:
-            return metadata['xesam:title']
+            titulo = metadata.get('xesam:title', 'N/A')
+            artistas = metadata.get('xesam:artist', ['N/A'])
+            artistas_str = ', '.join(artistas)
+            return titulo, artistas_str
         else:
-            return "N/A"
+            return "N/A", "N/A"
     except Exception as e:
         print(f"Error al obtener información del reproductor: {e}")
-        return "N/A"
+        return "N/A", "N/A"
 
-# Función para actualizar el título de la ventana con el nombre de la canción actual
+# Función para actualizar el título y artista de la ventana
 def actualizar_titulo_cancion():
-    titulo = obtener_titulo_cancion()
-    ventana.title(f"Spotify WAV Recorder - {titulo}")
+    titulo, artistas = obtener_info_cancion()
+    ventana.title(f"Spotify WAV Recorder - {titulo} - {artistas}")
+    etiqueta_cancion.config(text=f"Nombre de la canción: {titulo}\nArtista: {artistas}")
+    ventana.after(1000, actualizar_titulo_cancion)
 
 def grabar_audio():
-    global grabando, segundos_transcurridos
+    global grabando, audio_buffer, tiempo_transcurrido
     grabando = True
-    segundos_transcurridos = 0
     audio_data = []
+    tiempo_transcurrido = 0
+    actualizar_tiempo_transcurrido()
 
     def callback(indata, frames, time, status):
-        global segundos_transcurridos
-        nonlocal audio_data
+        global audio_buffer
         if grabando:
             audio_data.append(indata.copy())
-            segundos_transcurridos += 0.1  # Aumenta en 0.1 segundos (ajuste según necesidad)
-            etiqueta_tiempo.config(text=f"Tiempo transcurrido: {segundos_transcurridos:.1f} segundos")
+            audio_buffer.extend(indata.copy())
+            if len(audio_buffer) > buffer_size:
+                audio_buffer = audio_buffer[-buffer_size:]
 
     # Encuentra el dispositivo de entrada deseado (por nombre)
     dispositivos = sd.query_devices()
@@ -57,20 +66,30 @@ def grabar_audio():
         messagebox.showerror("Error", "No se encontró el dispositivo de entrada adecuado")
         return
 
+    titulo, artistas = obtener_info_cancion()
+    nombre_archivo_salida = limpiar_nombre_archivo(f"{artistas} - {titulo}.wav")
+
     with sd.InputStream(samplerate=fs, device=indice_dispositivo, channels=2, callback=callback, dtype='int16'):
         while grabando:
             sd.sleep(100)
 
     audio_data_np = np.concatenate(audio_data, axis=0)
-    guardar_audio(audio_data_np)
+    guardar_audio(audio_data_np, nombre_archivo_salida)
 
-def guardar_audio(audio):
+def guardar_audio(audio, nombre_archivo):
     with wave.open(nombre_archivo, 'w') as archivo_wav:
         archivo_wav.setnchannels(2)
         archivo_wav.setsampwidth(2)
         archivo_wav.setframerate(fs)
         archivo_wav.writeframes(audio.tobytes())
     messagebox.showinfo("Información", f"Grabación completada y guardada como '{nombre_archivo}'")
+
+def limpiar_nombre_archivo(nombre):
+    # Caracteres no permitidos en nombres de archivos
+    caracteres_no_permitidos = '/\\:*?"<>|'
+    for caracter in caracteres_no_permitidos:
+        nombre = nombre.replace(caracter, '-')
+    return nombre
 
 def iniciar_grabacion():
     global grabando
@@ -82,7 +101,13 @@ def detener_grabacion():
     global grabando
     grabando = False
     print("Grabación terminada")
-    etiqueta_tiempo.config(text="Tiempo transcurrido: 0.0 segundos")  # Reinicia el contador
+
+def actualizar_tiempo_transcurrido():
+    global tiempo_transcurrido
+    if grabando:
+        tiempo_transcurrido += 1
+        etiqueta_tiempo.config(text=f"Tiempo de grabación: {tiempo_transcurrido} s")
+        ventana.after(1000, actualizar_tiempo_transcurrido)
 
 # Crear la ventana principal
 ventana = tk.Tk()
@@ -90,21 +115,21 @@ ventana.title("Spotify WAV Recorder")
 ventana.geometry("600x200")  # Tamaño de la ventana
 
 # Etiqueta para mostrar el nombre de la canción actual
-etiqueta_cancion = tk.Label(ventana, text="Nombre de la canción: ")
+etiqueta_cancion = tk.Label(ventana, text="Nombre de la canción: \nArtista: ")
 etiqueta_cancion.pack(pady=10)
+
+# Etiqueta para mostrar el tiempo de grabación transcurrido
+etiqueta_tiempo = tk.Label(ventana, text="Tiempo de grabación: 0 s")
+etiqueta_tiempo.pack(pady=10)
 
 # Función para actualizar la etiqueta con el nombre de la canción actual
 def actualizar_etiqueta_cancion():
-    titulo = obtener_titulo_cancion()
-    etiqueta_cancion.config(text=f"Nombre de la canción: {titulo}")
+    titulo, artistas = obtener_info_cancion()
+    etiqueta_cancion.config(text=f"Nombre de la canción: {titulo}\nArtista: {artistas}")
     ventana.after(1000, actualizar_etiqueta_cancion)
 
 # Llamar a la función para actualizar la etiqueta inicialmente
 actualizar_etiqueta_cancion()
-
-# Etiqueta para mostrar el tiempo transcurrido
-etiqueta_tiempo = tk.Label(ventana, text="Tiempo transcurrido: 0.0 segundos")
-etiqueta_tiempo.pack()
 
 # Botones para iniciar y detener la grabación
 boton_grabar = tk.Button(ventana, text="Iniciar Grabación", command=iniciar_grabacion)
