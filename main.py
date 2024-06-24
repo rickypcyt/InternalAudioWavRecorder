@@ -19,7 +19,8 @@ current_filename = ""
 
 # Function to get song title and artist information
 def get_song_info():
-    global current_title, current_artists
+    global current_title, current_artists, recording
+
     bus = SessionBus()
     try:
         player = bus.get('org.mozilla.firefox.ZGVmYXVsdC1yZWxlYXNl', '/org/mpris/MediaPlayer2')
@@ -31,13 +32,16 @@ def get_song_info():
             if title != current_title or artists_str != current_artists:
                 current_title = title
                 current_artists = artists_str
-                new_song_detected(title, artists_str)
+                if recording:
+                    stop_recording()
+                    start_recording()
             return title, artists_str
         else:
             return "N/A", "N/A"
     except Exception as e:
         print(f"Error retrieving player information: {e}")
         return "N/A", "N/A"
+
 
 # Function to handle new song detection
 def new_song_detected(title, artists):
