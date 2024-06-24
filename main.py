@@ -22,7 +22,7 @@ def get_song_info():
     global current_title, current_artists
     bus = SessionBus()
     try:
-        player = bus.get('org.mpris.MediaPlayer2.firefox.instance_1_83', '/org/mpris/MediaPlayer2')
+        player = bus.get('org.mozilla.firefox.ZGVmYXVsdC1yZWxlYXNl', '/org/mpris/MediaPlayer2')
         metadata = player.Metadata
         if metadata:
             title = metadata.get('xesam:title', 'N/A')
@@ -75,7 +75,7 @@ def record_audio():
     devices = sd.query_devices()
     device_index = None
     for i, device in enumerate(devices):
-        if "Ricky Munoz’s AirPods Pro" in device['name']:
+        if "Firefox" in device['name']:
             device_index = i
             break
 
