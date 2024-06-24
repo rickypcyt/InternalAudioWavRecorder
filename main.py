@@ -14,9 +14,12 @@ nombre_archivo = 'output.wav'
 audio_buffer = []
 buffer_size = fs  # Buffer de 1 segundo
 tiempo_transcurrido = 0
+titulo_actual = ""
+artistas_actual = ""
 
 # Función para obtener el título y artista de la canción
 def obtener_info_cancion():
+    global titulo_actual, artistas_actual
     bus = SessionBus()
     try:
         player = bus.get('org.mpris.MediaPlayer2.firefox.instance_1_83', '/org/mpris/MediaPlayer2')
@@ -25,6 +28,10 @@ def obtener_info_cancion():
             titulo = metadata.get('xesam:title', 'N/A')
             artistas = metadata.get('xesam:artist', ['N/A'])
             artistas_str = ', '.join(artistas)
+            if titulo != titulo_actual or artistas_str != artistas_actual:
+                titulo_actual = titulo
+                artistas_actual = artistas_str
+                nueva_cancion_detectada(titulo, artistas_str)
             return titulo, artistas_str
         else:
             return "N/A", "N/A"
@@ -32,19 +39,29 @@ def obtener_info_cancion():
         print(f"Error al obtener información del reproductor: {e}")
         return "N/A", "N/A"
 
+# Función para manejar la detección de una nueva canción
+def nueva_cancion_detectada(titulo, artistas):
+    global grabando
+    if grabando:
+        detener_grabacion()
+    iniciar_grabacion()
+
 # Función para actualizar el título y artista de la ventana
 def actualizar_titulo_cancion():
+    global titulo_actual, artistas_actual
     titulo, artistas = obtener_info_cancion()
-    ventana.title(f"Spotify WAV Recorder - {titulo} - {artistas}")
+    ventana.title(f"WAV Recorder - {titulo} - {artistas}")
     etiqueta_cancion.config(text=f"Nombre de la canción: {titulo}\nArtista: {artistas}")
+    titulo_actual = titulo
+    artistas_actual = artistas
     ventana.after(1000, actualizar_titulo_cancion)
 
 def grabar_audio():
     global grabando, audio_buffer, tiempo_transcurrido
     grabando = True
-    audio_data = []
     tiempo_transcurrido = 0
-    actualizar_tiempo_transcurrido()
+
+    audio_data = []
 
     def callback(indata, frames, time, status):
         global audio_buffer
@@ -93,9 +110,11 @@ def limpiar_nombre_archivo(nombre):
 
 def iniciar_grabacion():
     global grabando
+    actualizar_tiempo_transcurrido()
     print("Grabando...")
     if not grabando:
         threading.Thread(target=grabar_audio).start()
+        
 
 def detener_grabacion():
     global grabando
@@ -111,7 +130,7 @@ def actualizar_tiempo_transcurrido():
 
 # Crear la ventana principal
 ventana = tk.Tk()
-ventana.title("Spotify WAV Recorder")
+ventana.title("WAV Recorder")
 ventana.geometry("600x200")  # Tamaño de la ventana
 
 # Etiqueta para mostrar el nombre de la canción actual
