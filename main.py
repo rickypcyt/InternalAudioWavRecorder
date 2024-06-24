@@ -10,7 +10,6 @@ from pydbus import SessionBus
 # Global Variables
 recording = False
 fs = 48000  # Sampling rate, compatible with AirPods Pro
-filename = 'output.wav'
 audio_buffer = []
 buffer_size = fs  # 1-second buffer
 elapsed_time = 0
@@ -41,10 +40,9 @@ def get_song_info():
 
 # Function to handle new song detection
 def new_song_detected(title, artists):
-    global recording
-    if recording:
-        stop_recording()
-    start_recording()
+    # Optionally update song_label here
+    # song_label.config(text=f"Song Name: {title}\nArtist: {artists}")
+    pass
 
 # Function to update window title with song title and artist
 def update_song_title():
@@ -58,7 +56,6 @@ def update_song_title():
 
 def record_audio():
     global recording, audio_buffer, elapsed_time
-    recording = True
     elapsed_time = 0
 
     audio_data = []
@@ -110,16 +107,17 @@ def clean_filename(name):
 
 def start_recording():
     global recording
-    update_elapsed_time()
-    print("Recording...")
     if not recording:
         recording = True
         threading.Thread(target=record_audio).start()
+        update_elapsed_time()
+        print("Recording started...")
 
 def stop_recording():
     global recording
-    recording = False
-    print("Recording stopped")
+    if recording:
+        recording = False
+        print("Recording stopped")
 
 def update_elapsed_time():
     global elapsed_time
